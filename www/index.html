@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Uy top</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#17202a;--mut:#6b7785;--pri:#0f766e;--pri2:#e6f4f2;--line:#e3e8ee;--red:#dc2626}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1418;--card:#1a2127;--tx:#e8edf2;--mut:#93a0ad;--pri:#2dd4bf;--pri2:#16312e;--line:#2a343c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,Roboto,sans-serif;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+.top{display:flex;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:19px}
+.fav{background:var(--pri2);color:var(--pri);border:0;border-radius:18px;padding:6px 12px;font-size:14px}
+.fav.on{background:var(--pri);color:#fff}
+.filters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px}
+.filters select,.filters input{width:100%;padding:8px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--tx);font-size:14px;min-width:0}
+main{padding:10px 12px 70px;max-width:720px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.price{font-size:19px;font-weight:700;color:var(--pri)}
+.sub{color:var(--mut);font-size:13px}
+.ttl{font-weight:600;margin:2px 0}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+.chip{background:var(--pri2);color:var(--pri);border-radius:10px;padding:2px 8px;font-size:12px}
+.row{display:flex;justify-content:space-between;align-items:center}
+.heart{background:none;border:0;font-size:22px;color:var(--mut);padding:0 4px}
+.heart.on{color:var(--red)}
+.btn{display:inline-block;border:0;border-radius:10px;padding:10px 14px;font-size:15px;background:var(--pri);color:#fff;text-decoration:none;text-align:center}
+.btn.alt{background:var(--pri2);color:var(--pri)}
+#more{display:block;margin:6px auto 0;width:100%}
+.msg{text-align:center;color:var(--mut);padding:24px 8px;white-space:pre-wrap}
+#modal{display:none;position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.5);overflow:auto}
+#modal .box{background:var(--card);margin:0 auto;max-width:720px;min-height:100%;padding:14px;padding-top:calc(14px + env(safe-area-inset-top))}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.full{white-space:pre-wrap;word-break:break-word;font-size:14px;border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+iframe{width:100%;height:72vh;border:0;border-radius:10px;background:#fff;margin-top:8px}
+.close{float:right;background:var(--pri2);color:var(--pri);border:0;border-radius:18px;padding:6px 14px;font-size:14px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>🏡 Uy top</h1><button class="fav" id="favBtn">♥ Saralangan</button></div>
+  <div class="filters">
+    <select id="fCity"><option value="">Shahar: hammasi</option><option>Namangan</option><option>Toshkent</option></select>
+    <select id="fType"><option value="">Tur: hammasi</option><option value="kvartira">Kvartira</option><option value="hovli">Hovli</option><option value="yer">Yer</option><option value="tijorat">Tijorat</option></select>
+    <select id="fRooms"><option value="">Xona: hammasi</option><option>1</option><option>2</option><option>3</option><option>4</option><option value="5">5+</option></select>
+    <input id="fMin" type="number" inputmode="numeric" placeholder="Narx dan, $">
+    <input id="fMax" type="number" inputmode="numeric" placeholder="Narx gacha, $">
+    <select id="fSort"><option value="new">Yangilari</option><option value="cheap">Arzonlari</option><option value="exp">Qimmatlari</option></select>
+  </div>
+</header>
+<main>
+  <div id="list"></div>
+  <div class="msg" id="msg"></div>
+  <button class="btn alt" id="more" style="display:none">Yana yuklash</button>
+</main>
+<div id="modal"><div class="box" id="box"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+const PAGE = 30, USD = 12500;
+let db, last = null, done = false, items = [], loading = false, showFav = false;
+let favs = new Set();
+try { favs = new Set(JSON.parse(localStorage.getItem("uytop_favs") || "[]")); } catch (e) {}
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const TYPE = { kvartira: "Kvartira", hovli: "Hovli", yer: "Yer uchastka", tijorat: "Tijorat obyekti" };
+const COND = { evro: "Evro remont", remontli: "Remontli", remont_talab: "Ta'mir talab", karobka: "Karobka" };
+
+function money(h) {
+  if (h.price_amount == null) return "Narxi kelishiladi";
+  const a = Math.round(h.price_amount);
+  if (h.currency === "USD") return a.toLocaleString("ru-RU") + " $";
+  return a >= 1e6 ? (a / 1e6).toLocaleString("ru-RU", { maximumFractionDigits: 1 }) + " mln so'm" : a.toLocaleString("ru-RU") + " so'm";
+}
+function usd(h) { return h.price_uzs ? h.price_uzs / USD : (h.price_amount != null && h.currency === "USD" ? h.price_amount : null); }
+function ago(h) {
+  const d = h.createdAt && h.createdAt.toDate ? h.createdAt.toDate() : null;
+  if (!d) return "";
+  const m = Math.floor((Date.now() - d) / 60000);
+  if (m < 60) return Math.max(m, 1) + " daqiqa oldin";
+  if (m < 1440) return Math.floor(m / 60) + " soat oldin";
+  return Math.floor(m / 1440) + " kun oldin";
+}
+function chips(h) {
+  const c = [];
+  if (h.area_m2) c.push(Math.round(h.area_m2) + " m²");
+  if (h.area_sotix) c.push(h.area_sotix + " sotix");
+  if (h.floor) c.push(h.floor + (h.floors_total ? "/" + h.floors_total : "") + " qavat");
+  if (h.condition && COND[h.condition]) c.push(COND[h.condition]);
+  if (h.kadastr) c.push("Kadastr bor");
+  if (h.ipoteka) c.push("Ipoteka");
+  if (h.bolib_tolash) c.push("Bo'lib to'lash");
+  if (h.ayirboshlash) c.push("Ayirboshlash");
+  if (h.seller === "egasi") c.push("Egasi");
+  if (h.seller === "makler") c.push("Makler");
+  if (h.seller === "maklersiz") c.push("Maklersiz");
+  return c.map(x => `<span class="chip">${esc(x)}</span>`).join("");
+}
+function place(h) {
+  return [h.city, h.places && h.places.length ? h.places[0] : "", h.address].filter(Boolean).join(", ");
+}
+
+function filtered() {
+  const city = $("fCity").value, type = $("fType").value, rooms = $("fRooms").value;
+  const min = parseFloat($("fMin").value), max = parseFloat($("fMax").value), sort = $("fSort").value;
+  let r = items.filter(h => {
+    if (showFav && !favs.has(h.id)) return false;
+    if (city && h.city !== city) return false;
+    if (type && h.type !== type) return false;
+    if (rooms) { if (!h.rooms) return false; if (rooms === "5" ? h.rooms < 5 : h.rooms !== +rooms) return false; }
+    const u = usd(h);
+    if ((min || max) && u == null) return false;
+    if (min && u < min) return false;
+    if (max && u > max) return false;
+    return true;
+  });
+  if (sort === "cheap") r.sort((a, b) => (usd(a) ?? 1e12) - (usd(b) ?? 1e12));
+  if (sort === "exp") r.sort((a, b) => (usd(b) ?? -1) - (usd(a) ?? -1));
+  return r;
+}
+
+function render() {
+  const r = filtered();
+  $("list").innerHTML = r.map(h => `
+    <div class="card" data-id="${esc(h.id)}">
+      <div class="row"><div class="price">${esc(money(h))}</div>
+        <button class="heart ${favs.has(h.id) ? "on" : ""}" data-fav="${esc(h.id)}">${favs.has(h.id) ? "♥" : "♡"}</button></div>
+      <div class="ttl">${esc(h.title || TYPE[h.type] || "Uy")}</div>
+      <div class="chips">${chips(h)}</div>
+      <div class="sub">📍 ${esc(place(h)) || "manzil ko'rsatilmagan"}</div>
+      <div class="sub">${esc(ago(h))}${(h.photoCount || h.videoCount) ? " · 📷 " + (h.photoCount || 0) + (h.videoCount ? " 🎬 " + h.videoCount : "") : ""}</div>
+    </div>`).join("");
+  $("msg").textContent = r.length ? "" : (loading ? "Yuklanmoqda..." : (showFav ? "Saralangan e'lon yo'q" : "E'lon topilmadi"));
+  $("more").style.display = done ? "none" : "block";
+}
+
+async function load(auto) {
+  if (loading || done) return;
+  loading = true; $("more").disabled = true; render();
+  try {
+    let q = db.collection("sales").where("status", "==", "on").orderBy("createdAt", "desc").limit(PAGE);
+    if (last) q = q.startAfter(last);
+    const s = await q.get();
+    s.docs.forEach(d => items.push({ id: d.id, ...d.data() }));
+    if (s.docs.length) last = s.docs[s.docs.length - 1];
+    if (s.size < PAGE) done = true;
+  } catch (e) {
+    $("msg").textContent = "Xato: " + (e.message || e);   // indeks kerak bo'lsa, xabardagi havolani oching
+    loading = false; $("more").disabled = false; return;
+  }
+  loading = false; $("more").disabled = false; render();
+  // filtr natijasi kam bo'lsa, o'zi yana yuklaydi (ko'pi bilan 5 marta)
+  if (!done && filtered().length < 10 && (auto || 0) < 5) load((auto || 0) + 1);
+}
+
+function open_(id) {
+  const h = items.find(x => x.id === id); if (!h) return;
+  const ph = (h.phones || [])[0];
+  $("box").innerHTML = `
+    <button class="close" id="cl">Yopish</button>
+    <div class="price">${esc(money(h))}</div>
+    ${h.price_m2 ? `<div class="sub">1 m² ≈ ${Math.round(h.price_m2).toLocaleString("ru-RU")} ${h.currency === "USD" ? "$" : "so'm"}</div>` : ""}
+    <div class="ttl">${esc(h.title || "")}</div>
+    <div class="chips">${chips(h)}</div>
+    <div class="sub">📍 ${esc(place(h))}</div>
+    <div class="acts">
+      ${ph ? `<a class="btn" href="tel:${esc(ph)}">📞 Qo'ng'iroq</a>` : ""}
+      ${h.embed ? `<button class="btn alt" id="mediaBtn">📷 Rasm va video</button>` : ""}
+      ${h.link ? `<a class="btn alt" href="${esc(h.link)}" target="_blank" rel="noopener">Asl e'lon</a>` : ""}
+      <button class="btn alt" id="favM">${favs.has(h.id) ? "♥ Saralangan" : "♡ Saralash"}</button>
+    </div>
+    ${(h.phones || []).length > 1 ? `<div class="sub">Telefon: ${esc(h.phones.join(", "))}</div>` : ""}
+    <div id="media"></div>
+    <div class="full">${esc((h.text || "").slice(0, 2000))}</div>
+    <div class="sub" style="margin-top:8px">${esc(h.source || "")} · ${esc(ago(h))}</div>`;
+  $("modal").style.display = "block"; document.body.style.overflow = "hidden";
+  $("cl").onclick = closeM;
+  $("favM").onclick = () => { toggleFav(id); $("favM").textContent = favs.has(id) ? "♥ Saralangan" : "♡ Saralash"; };
+  const mb = $("mediaBtn");
+  if (mb) mb.onclick = () => {   // rasm/video bazada saqlanmaydi: asl Telegram postdan ko'rsatiladi
+    $("media").innerHTML = `<iframe src="${esc(h.embed)}&mode=tme" loading="lazy"></iframe>
+      <div class="sub">Ko'rinmasa, kanal yopiq yoki e'lon o'chirilgan bo'lishi mumkin: "Asl e'lon" tugmasini bosing.</div>`;
+    mb.style.display = "none";
+  };
+}
+function closeM() { $("modal").style.display = "none"; $("box").innerHTML = ""; document.body.style.overflow = ""; }
+function toggleFav(id) {
+  favs.has(id) ? favs.delete(id) : favs.add(id);
+  try { localStorage.setItem("uytop_favs", JSON.stringify([...favs])); } catch (e) {}
+  render();
+}
+
+document.addEventListener("click", e => {
+  const f = e.target.closest("[data-fav]");
+  if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
+  const c = e.target.closest(".card");
+  if (c) open_(c.dataset.id);
+});
+["fCity", "fType", "fRooms", "fMin", "fMax", "fSort"].forEach(id => $(id).addEventListener("input", () => { render(); if (!done && filtered().length < 10) load(0); }));
+$("more").onclick = () => load(0);
+$("favBtn").onclick = () => { showFav = !showFav; $("favBtn").classList.toggle("on", showFav); render(); };
+window.addEventListener("popstate", closeM);
+
+(function init() {
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || !cfg.projectId) { $("msg").textContent = "firebase-config.js faylida Firebase sozlamalarini kiriting."; return; }
+  firebase.initializeApp(cfg);
+  db = firebase.firestore();
+  load(0);
+})();
+</script>
+</body>
+</html>

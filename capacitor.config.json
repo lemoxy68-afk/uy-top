@@ -1,0 +1,6 @@
+{
+  "appId": "uz.uytop.app",
+  "appName": "Uy top",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}
