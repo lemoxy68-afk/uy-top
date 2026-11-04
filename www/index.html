@@ -178,7 +178,8 @@ function open_(id) {
     <div class="full">${esc((h.text || "").slice(0, 2000))}</div>
     <div class="sub" style="margin-top:8px">${esc(h.source || "")} · ${esc(ago(h))}</div>`;
   $("modal").style.display = "block"; document.body.style.overflow = "hidden";
-  $("cl").onclick = closeM;
+  history.pushState({ m: 1 }, "");   // telefondagi "orqaga" tugmasi oynani yopadi, ilovadan chiqarib yubormaydi
+  $("cl").onclick = () => history.back();
   $("favM").onclick = () => { toggleFav(id); $("favM").textContent = favs.has(id) ? "♥ Saralangan" : "♡ Saralash"; };
   const mb = $("mediaBtn");
   if (mb) mb.onclick = () => {   // rasm/video bazada saqlanmaydi: asl Telegram postdan ko'rsatiladi

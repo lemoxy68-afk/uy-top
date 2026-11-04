@@ -10,4 +10,6 @@ UY TOP ilovasi (Capacitor, Android APK)
 5) Birinchi marta ochganda ekranda "The query requires an index" xatosi chiqsa, xabardagi havolani brauzerda
    oching va "Create index" ni bosing (bir martalik, 2-3 daqiqa).
 
-Paket nomi: uz.uytop.app.  Play Market uchun keyinroq imzolangan AAB workflow qo'shamiz.
+Paket nomi: uz.uytop.app.
+Play Market: Actions -> "Release AAB (Play Market)" (imzo kaliti GitHub Secrets'da: KEYSTORE_BASE64,
+KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD). Loyiha Capacitor 8 (Android 16 / API 36), Play shuni talab qiladi.
